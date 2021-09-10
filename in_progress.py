@@ -4,7 +4,7 @@ from auth_data import username, password
 import time
 import random
 
-browser = webdriver.Chrome('./chromedriver')
+browser = webdriver.Chrome('./chromedriver')    # you have to download chromedriver to your directory first
 
 
 def exit_from_browser():
