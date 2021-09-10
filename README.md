@@ -1,5 +1,5 @@
 # instagramBot
-v0.1 SNAPSHOT
+v0.1.1 SNAPSHOT
 
 An Instagram bot, which 
 
