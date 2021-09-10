@@ -19,7 +19,6 @@ WHAT THIS BOT CAN DO:
 - auto-like posts of {user} subsribers / in progress
 - auto-subscribe with storing users data / in progress
 - auto-unscubscribe from {users_list} / in progress
-- ### / in progress
 
 
 
