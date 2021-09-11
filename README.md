@@ -1,4 +1,4 @@
-# Instagram_bot
+# _Instagram_bot_
 v0.1.1 SNAPSHOT
 
 An Instagram bot, which 
