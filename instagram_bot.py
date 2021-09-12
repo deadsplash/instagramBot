@@ -15,18 +15,18 @@ After logging in is done, you can work with a program.
 
 """
 
-# Telling user what's happening
-print('Getting username and password and logging in Instagram.')
-time.sleep(1)
-print("Please, don't close Chrome window! It will proceed by itself.")
-time.sleep(1)
-print("Open this console after logging in is done!")
-time.sleep(3)
+
 
 
 class InstagramBot:
 
     def __init__(self, username, password):
+        print('Getting username and password and logging in Instagram.')
+        time.sleep(1)
+        print("Please, don't close Chrome window! It will proceed by itself.")
+        time.sleep(1)
+        print("Open this console after logging in is done!")
+        time.sleep(3)
         self.username = username
         self.password = password
         self.browser = webdriver.Chrome('./chromedriver')
@@ -37,13 +37,14 @@ class InstagramBot:
 
     def save_urls_to_file(self, posts_urls, filename):
 
-        with open(f'saved_urls/{filename}_urls', 'a', encoding='utf-8') as f:
+        with open(f'saved_urls/{filename}_urls.txt', 'a', encoding='utf-8') as f:
             for i in posts_urls:
                 f.writelines(f'{i}\n')
 
         print(f'File "{filename}_urls" is successfully saved!')
 
     def login(self):
+
         browser = self.browser
 
         try:
@@ -64,12 +65,11 @@ class InstagramBot:
             time.sleep(5)
 
             # we let user to check if everything is OK, and then come back
-            print('''
+            '''
             //////////////////////////////////////////////////
             Check if you are logged in before choosing options.
             //////////////////////////////////////////////////
-            ''')
-            time.sleep(7)
+            '''
 
         except Exception as ex:
             print(f'Something went wrong: {ex}')
@@ -78,6 +78,7 @@ class InstagramBot:
 
     def parse_posts_by_hashtag(self, hashtag, rolls=5):
         browser = self.browser
+        print(f"Parsing urls with hashtag #{hashtag}.")
 
         try:
             browser.get(f'https://www.instagram.com/explore/tags/{hashtag}/')
@@ -97,7 +98,8 @@ class InstagramBot:
                 if "/p/" in href:
                     posts_urls.append(href)
 
-            print(f'Successfully parsed urls for #{hashtag} hashtag.')
+            print(f'Successfully parsed urls for #{hashtag}.')
+            return posts_urls
 
         except Exception as ex:
             print(ex)
@@ -191,8 +193,6 @@ class InstagramBot:
             print(f'Post {url} liked!')
 
     def like_machine(self, posts_urls, max_rolls=60, subscribe=False, save_liked_posts=False, save_subs=False):
-        self.close_browser()
-        self.login()
 
         browser = self.browser
         count = 0
@@ -200,18 +200,19 @@ class InstagramBot:
         subbed_urls = []
 
         for url in posts_urls:
-            if 0 < count < max_rolls:
+            if count < max_rolls:
                 try:
                     browser.get(url)
                     time.sleep(7)
 
                     like = '//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/section[1]/span[1]/button'
                     sub = '/html/body/div[1]/section/main/div/div[1]/article/header/div[2]/div[1]/div[2]/button'
-                    if self.xpath_exists(like) == True and self.wrong_post_checker() == True:
+                    if self.xpath_exists(like) is True and self.wrong_post_checker() is True:
                         like_button = browser.find_element_by_xpath(like).click()
-                        time.sleep(random.randrange(80, 100))   # important timeout to not get banned
-                        count += 1
                         print(f"Bot liked:  {url}")
+                        time.sleep(10)
+                        # time.sleep(random.randrange(80, 100))   # important timeout to not get banned
+                        count += 1
 
                         if save_liked_posts is True:
                             liked_urls.append(url)
@@ -230,10 +231,7 @@ class InstagramBot:
                 except Exception as ex:
                     self.close_browser()
                     print(ex)
-            else:
-                pass
 
-        print(f"Number of posts liked:  {count}")
 
         if save_liked_posts is True:
             filename = str(f'{datetime.date.today()}_liked')
@@ -249,4 +247,96 @@ class InstagramBot:
             except Exception as ex:
                 print(f"Failed to save liked posts to a file. Problem: {ex}")
 
+        print(f'Work is done!')
+        print(f"Number of posts liked:  {count}")
         self.close_browser()
+
+
+"""
+Now it's time to make console menu for users to make bot usable.
+From this place you can implement it's functions to your app.
+ 
+"""
+
+main_menu = """
+    MAIN MENU
+
+1. Like machine
+2. Subscribe machine | not available
+3. Downloader | not available
+4. Unsubscriber | not available 
+0. Exit
+"""
+
+
+def check_inp():
+    inp = str(input())
+    try:
+        inp = int(inp)
+        return inp
+    except KeyError:
+        return False
+
+
+def check_yesno():
+    inp = str(input()).upper()
+    if inp == "Y":
+        return True
+    elif inp == "N":
+        return False
+    else:
+        print('Wrong input!')
+        return
+
+
+def main():
+
+    print(main_menu)
+    inp = check_inp()
+    if inp is False:
+        return
+
+    if inp == 1:
+        print("""
+1. Hashtag liker
+2. User posts liker | not available
+3. User subscribers liker | not available
+    """)
+        inp = check_inp()
+
+        if inp == 1:
+            print('Please, type hashtag which you want to use.')
+            hashtag = str(input())
+            print('Do you want to save liked posts urls? Y/N')
+            save_liked_posts = check_yesno()
+            maxrolls_input = int(input("Max rolls?   "))
+            bot = InstagramBot(username, password)
+            bot.login()
+            bot.like_machine(
+                posts_urls=bot.parse_posts_by_hashtag(hashtag),
+                save_liked_posts=save_liked_posts,
+                max_rolls=maxrolls_input)
+
+        elif inp == 2:
+            print("Will be available soon.")
+            return
+
+        elif inp == 3:
+            print("Will be available soon.")
+            return
+
+    elif inp == 2:
+        print("""
+1. Use hashtag to find users. | not available
+2. Use user's subscribers to find users. | not available
+        """)
+        inp = check_inp()
+
+        return
+
+    elif inp == 0:
+        exit()
+
+
+while True:
+    main()
