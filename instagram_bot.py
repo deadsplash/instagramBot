@@ -1,5 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import NoSuchElementException
 from auth_data import username, password
 import time
 import random
@@ -23,148 +24,200 @@ time.sleep(3)
 browser = webdriver.Chrome('./chromedriver')
 
 
-def exit_from_browser():
-    global browser
-    browser.close()
-    browser.quit()
-    # this func closes the browser
+class InstagramBot:
+
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+        self.browser = webdriver.Chrome('./chromedriver')
+
+    def close_browser(self):
+        self.browser.close()
+        self.browser.quit()
+
+    def save_urls_to_file(self, posts_urls, account_name):
+
+        with open(f'{account_name}_urls', 'w', encoding='utf-8') as f:
+            for i in posts_urls:
+                f.writelines(f'{i}\n')
+
+        print(f'File "{account_name}_urls" is successfully saved!')
+
+    def login(self):
+        browser = self.browser
+
+        try:
+            browser.get('https://www.instagram.com/')
+            time.sleep(random.randrange(3, 5))
+
+            username_input = browser.find_element_by_name('username')
+            username_input.clear()
+            username_input.send_keys(username)
+
+            time.sleep(2)
+
+            password_input = browser.find_element_by_name('password')
+            password_input.clear()
+            password_input.send_keys(password)
+
+            password_input.send_keys(Keys.ENTER)
+            time.sleep(5)
+
+            # we let user to check if everything is OK, and then come back
+            print('''
+            //////////////////////////////////////////////////
+            Check if you are logged in before choosing options.
+            //////////////////////////////////////////////////
+            ''')
+            time.sleep(7)
+
+        except Exception as ex:
+            print(f'Something went wrong: {ex}')
+            browser.close()
+            browser.quit()
+
+    def parse_posts_by_hashtag(self, hashtag, rolls=5):
+        browser = self.browser
+
+        try:
+            browser.get(f'https://www.instagram.com/explore/tags/{hashtag}/')
+            time.sleep(5)
+
+            for i in range(1, rolls, 1):
+                browser.execute_script('window.scrollTo(0, document.body.scrollHeight);')
+                time.sleep(random.randrange(3, 7))
+                # here we scroll to get as much urls as possible
+
+            hrefs = browser.find_elements_by_tag_name('a')
+
+            posts_urls = []
+            for item in hrefs:
+                href = item.get_attribute('href')
+
+                if "/p/" in href:
+                    posts_urls.append(href)
+
+            print(f'Successfully parsed urls for #{hashtag} hashtag.')
+
+        except Exception as ex:
+            print(ex)
+            browser.close()
+            browser.quit()
+
+    def xpath_exists(self, xpath):
+
+        browser = self.browser
+        try:
+            browser.find_element_by_xpath(xpath)
+            exist = True
+        except NoSuchElementException:
+            exist = False
+        return exist
+
+    def wrong_post_checker(self):
+
+        browser = self.browser
+
+        wrong_page = "/html/body/div[1]/section/main/div/div/h2"
+        if self.xpath_exists(wrong_page):
+            print("This post doesn't exist.")
+            return False
+        else:
+            return True
+
+    def account_checker(self, url):
+
+        browser = self.browser
+        browser.get(url)
+
+        exist_xpath = '/html/body/div[1]/section/main/div/header/section/div[1]/h2'
+        closed_xpath = '/html/body/div[1]/section/main/div/div/article/div[1]/div/h2'
+
+        if self.xpath_exists(exist_xpath) == True:
+            if self.xpath_exists(closed_xpath) == False:
+                return True
+            else:
+                print('This is a closed account.')
+                return False
+        else:
+            print("Wrong link, or account doesn't exist.")
+            return False
+
+    def parse_posts_by_account(self, account_url):
+        browser = self.browser
+
+        if self.account_checker(account_url) == True:
+            print('Account is OK.')
+        else:
+            return
+
+        try:
+            browser.get(f'{account_url}')
+            time.sleep(5)
+
+            posts_count = int(browser.find_element_by_xpath('/html/body/div[1]/section/main/div/header/section/ul/li[1]/span/span').text)
+            loops_count = int(posts_count / 12)
+
+            posts_urls = []
+            for i in range(1, loops_count):
+                print(f'Collecting urls, loop #{i}.')
+                hrefs = browser.find_elements_by_tag_name('a')
+                for item in hrefs:
+                    href = item.get_attribute('href')
+
+                    if "/p/" in href:
+                        posts_urls.append(href)
+
+                browser.execute_script('window.scrollTo(0, document.body.scrollHeight);')
+                time.sleep(random.randrange(3, 7))
+
+            account_name = str(account_url).split("/")[-2]
+            print(f"Successfully parsed urls of {account_name}!")
+            return posts_urls
 
 
-def login(username, password):
-    try:
-        browser.get('https://www.instagram.com/')
-        time.sleep(random.randrange(3, 5))
 
-        username_input = browser.find_element_by_name('username')
-        username_input.clear()
-        username_input.send_keys(username)
+        except Exception as ex:
+            print(ex)
+            browser.close()
+            browser.quit()
 
-        time.sleep(2)
+    def exact_post_like(self, url):
 
-        password_input = browser.find_element_by_name('password')
-        password_input.clear()
-        password_input.send_keys(password)
-
-        password_input.send_keys(Keys.ENTER)
-        time.sleep(5)
-
-        # we let user to check if everything is OK, and then come back
-        print('''
-        //////////////////////////////////////////////////
-        Check if you are logged in before choosing options.
-        //////////////////////////////////////////////////
-        ''')
+        browser = self.browser
+        browser.get(url)
         time.sleep(7)
 
-    except Exception as ex:
-        print(f'Something went wrong: {ex}')
-        browser.close()
-        browser.quit()
+        like = '//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/section[1]/span[1]/button'
+        if self.xpath_exists(like) == True and self.wrong_post_checker() == True:
+            like_button = browser.find_element_by_xpath(like).click()
+            time.sleep(3)
+            print(f'Post {url} liked!')
 
+    def like_machine(self, posts_urls):
+        browser = self.browser
+        count = 0
+        for url in posts_urls:
+            if 0 < count < 60:
+                try:
+                    browser.get(url)
+                    time.sleep(7)
 
-def like_machine(posts_urls):
-    # you'd better not like more that 60 posts a day, in case of getting banned for suspicious activity
-    count = 0
-    for url in posts_urls:
-        if 0 < count < 60:
-            try:
-                browser.get(url)
-                time.sleep(5)
-                like_button = browser.find_element_by_xpath(
-                    '//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/section[1]/span[1]/button').click()
-                time.sleep(random.randrange(80, 100))
-                count += 1
+                    like = '//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/section[1]/span[1]/button'
+                    if self.xpath_exists(like) == True and self.wrong_post_checker() == True:
+                        like_button = browser.find_element_by_xpath(like).click()
+                        time.sleep(random.randrange(80, 100))   # important timeout to not get banned
+                        count += 1
+                        print(f"bot liked:  {url}")
+                    else:
+                        print(f"Got a problem with {url}, skipping.")
+                        pass
 
-            except Exception as ex:
-                exit_from_browser()
-                print(ex)
-        else:
-            pass
-
-        print("bot liked:   ", url)
-    print(f"Number of posts liked:  {count}")
-
-
-def hashtag_search(hashtag, exit_check,rolls=5):
-    try:
-        browser.get(f'https://www.instagram.com/explore/tags/{hashtag}/')
-        time.sleep(5)
-
-        for i in range(1, rolls, 1):
-            browser.execute_script('window.scrollTo(0, document.body.scrollHeight;')
-            time.sleep(random.randrange(3, 7))
-            # here we scroll to get as much urls as possible
-
-        hrefs = browser.find_elements_by_tag_name('a')
-
-        posts_urls = []
-        for item in hrefs:
-            href = item.get_attribute('href')
-
-            if "/p/" in href:
-                posts_urls.append(href)
-
-        print(f'successfully parced urls for #{hashtag} hashtag, now bot will like posts')
-
-        like_machine(posts_urls)
-
-        if exit_check == "Y":
-            browser.close()
-            browser.quit()
-            return False
-        elif exit_check == "N":
-            pass
-        else:
-            print('Something went wrong:  exit_check is incorrect.')
-        # browser.close()
-        # browser.quit()
-    except Exception as ex:
-        print(ex)
-        browser.close()
-        browser.quit()
-
-
-def main():
-    login(username, password)
-    while True:
-        print("""
-    Please, choose option from the list: 
-    
-1. Hashtag liker
-2. *** / work in progress
-3. *** / work in progress
-4. *** / work in progress
-0. Exit
-        """)
-        try:
-            inp = int(input())
-        except Exception as ex:
-            print('Wrong input, please try again.')
-            break
-        if inp == 1:
-            hashtag = str(input('Please, enter hash tag you want to try:  '))
-            print("Do you want to close browser after everything is done? Y/N")
-            exit_check = str(input()).upper()
-            if exit_check == 'Y' or exit_check == 'N':
-                print(f'OK, posting likes on #{hashtag}, please do not stop the program.')
-                time.sleep(3)  # small pause so user can read what you wrote in console
-                hashtag_search(hashtag, exit_check, rolls=1)
+                except Exception as ex:
+                    self.close_browser()
+                    print(ex)
             else:
-                print('Incorrect inputs, please try again.')
-        elif inp == 2:
-            print('Not available now.')
-            pass
-        elif inp == 3:
-            print('Not available now.')
-            pass
-        elif inp == 4:
-            print('Not available now.')
-            pass
-        elif inp == 0:
-            browser.close()
-            browser.quit()
-            print('App is shutting down.')
-            return False
+                pass
 
+        print(f"Number of posts liked:  {count}")
 
-main()
