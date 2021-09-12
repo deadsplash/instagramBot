@@ -3,6 +3,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
 from auth_data import username, password
 import time
+import datetime
 import random
 
 """
@@ -21,7 +22,6 @@ print("Please, don't close Chrome window! It will proceed by itself.")
 time.sleep(1)
 print("Open this console after logging in is done!")
 time.sleep(3)
-browser = webdriver.Chrome('./chromedriver')
 
 
 class InstagramBot:
@@ -35,13 +35,13 @@ class InstagramBot:
         self.browser.close()
         self.browser.quit()
 
-    def save_urls_to_file(self, posts_urls, account_name):
+    def save_urls_to_file(self, posts_urls, filename):
 
-        with open(f'{account_name}_urls', 'w', encoding='utf-8') as f:
+        with open(f'saved_urls/{filename}_urls', 'a', encoding='utf-8') as f:
             for i in posts_urls:
                 f.writelines(f'{i}\n')
 
-        print(f'File "{account_name}_urls" is successfully saved!')
+        print(f'File "{filename}_urls" is successfully saved!')
 
     def login(self):
         browser = self.browser
@@ -105,7 +105,7 @@ class InstagramBot:
             browser.quit()
 
     def xpath_exists(self, xpath):
-
+        # checks if xpath exist in your page
         browser = self.browser
         try:
             browser.find_element_by_xpath(xpath)
@@ -115,9 +115,7 @@ class InstagramBot:
         return exist
 
     def wrong_post_checker(self):
-
-        browser = self.browser
-
+        # if opened post is not valid - it will return False
         wrong_page = "/html/body/div[1]/section/main/div/div/h2"
         if self.xpath_exists(wrong_page):
             print("This post doesn't exist.")
@@ -126,7 +124,7 @@ class InstagramBot:
             return True
 
     def account_checker(self, url):
-
+        # we need to know if account exists, and if it's opened for you
         browser = self.browser
         browser.get(url)
 
@@ -175,15 +173,13 @@ class InstagramBot:
             print(f"Successfully parsed urls of {account_name}!")
             return posts_urls
 
-
-
         except Exception as ex:
             print(ex)
             browser.close()
             browser.quit()
 
     def exact_post_like(self, url):
-
+        # made for liking one post from multiple accounts
         browser = self.browser
         browser.get(url)
         time.sleep(7)
@@ -194,21 +190,39 @@ class InstagramBot:
             time.sleep(3)
             print(f'Post {url} liked!')
 
-    def like_machine(self, posts_urls):
+    def like_machine(self, posts_urls, max_rolls=60, subscribe=False, save_liked_posts=False, save_subs=False):
+        self.close_browser()
+        self.login()
+
         browser = self.browser
         count = 0
+        liked_urls = []
+        subbed_urls = []
+
         for url in posts_urls:
-            if 0 < count < 60:
+            if 0 < count < max_rolls:
                 try:
                     browser.get(url)
                     time.sleep(7)
 
                     like = '//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/section[1]/span[1]/button'
+                    sub = '/html/body/div[1]/section/main/div/div[1]/article/header/div[2]/div[1]/div[2]/button'
                     if self.xpath_exists(like) == True and self.wrong_post_checker() == True:
                         like_button = browser.find_element_by_xpath(like).click()
                         time.sleep(random.randrange(80, 100))   # important timeout to not get banned
                         count += 1
-                        print(f"bot liked:  {url}")
+                        print(f"Bot liked:  {url}")
+
+                        if save_liked_posts is True:
+                            liked_urls.append(url)
+
+                        if subscribe is True:
+                            try:
+                                sub_button = browser.find_element_by_xpath(sub).click()
+                                if save_subs is True:
+                                    subbed_urls.append(url)
+                            except Exception as ex:
+                                print(f'Failed to subscribe. Problem: {ex}')
                     else:
                         print(f"Got a problem with {url}, skipping.")
                         pass
@@ -221,3 +235,18 @@ class InstagramBot:
 
         print(f"Number of posts liked:  {count}")
 
+        if save_liked_posts is True:
+            filename = str(f'{datetime.date.today()}_liked')
+            try:
+                self.save_urls_to_file(liked_urls, filename)
+            except Exception as ex:
+                print(f"Failed to save liked posts to a file. Problem: {ex}")
+
+        if save_subs is True:
+            filename = str(f'{datetime.date.today()}_subbed')
+            try:
+                self.save_urls_to_file(liked_urls, filename)
+            except Exception as ex:
+                print(f"Failed to save liked posts to a file. Problem: {ex}")
+
+        self.close_browser()
